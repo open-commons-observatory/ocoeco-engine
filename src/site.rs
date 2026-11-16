@@ -2030,7 +2030,7 @@ fn now_secs() -> i64 {
 pub fn made_by_work(data: &Data, fam: &[String], now: i64) -> String {
     let act = of(data, "activity", fam);
     let rel = of(data, "releases", fam);
-    let runs = of(data, "ci", fam);
+    let runs = of(data, "runs", fam);
     if act.is_empty() && rel.is_empty() && runs.is_empty() {
         return String::new();
     }
@@ -2089,15 +2089,16 @@ pub fn made_by_work(data: &Data, fam: &[String], now: i64) -> String {
         };
         let short = s(r, "project");
         let short = short.rsplit('/').next().unwrap_or("");
+        // a run as the observatory observes it: of which workflow, and where it is seen
         let label = if fam.len() > 1 {
-            format!("{short}: {}", s(r, "id"))
+            format!("{short}: {}", s(r, "workflow"))
         } else {
-            s(r, "id")
+            s(r, "workflow")
         };
         let _ = write!(
             cis,
             r#"<a class="chip ci {t}" href="{}" title="{}: {c}">{} {}</a>"#,
-            esc(&s(r, "link")),
+            esc(&s(r, "url")),
             esc(&label),
             sign(t),
             esc(&label)
@@ -3429,7 +3430,7 @@ mod tests {
         let d = data(&[
             ("activity", "{\"id\":\"2026-11-10\",\"commits\":5,\"project\":\"o/p\"}\n{\"id\":\"2026-11-09\",\"commits\":2,\"project\":\"o/p\"}\n{\"id\":\"2025-01-01\",\"commits\":9,\"project\":\"o/p\"}"),
             ("releases", "{\"id\":\"v1\",\"published\":\"2026-11-01\",\"link\":\"https://r\",\"project\":\"o/p\"}"),
-            ("ci", "{\"id\":\"CI\",\"conclusion\":\"failure\",\"link\":\"https://c\",\"project\":\"o/p\"}"),
+            ("runs", "{\"id\":\"o/p:CI\",\"workflow\":\"CI\",\"conclusion\":\"failure\",\"url\":\"https://c\",\"project\":\"o/p\"}"),
         ]);
         let w = made_by_work(&d, &["o/p".to_string()], now);
         assert!(
