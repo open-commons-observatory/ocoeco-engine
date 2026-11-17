@@ -2047,12 +2047,15 @@ fn now_secs() -> i64 {
 
 /// What the work itself says, gathered by ocoeco: commits per day over 90 days, the latest
 /// release, the state of each CI workflow. Empty when nothing was gathered.
-/// Where each hand stands: every name that signs the family's record of work (a glimpse's `by` - an
-/// agent's role, devlab, a person), the latest first, with the last thing it landed, where, and when.
-/// Read off what was landed, said by no one.
+/// Where each hand stands: every name that signs the family's record of work - a glimpse's `by`, or a
+/// landing's (a commit on a main, signed by its co-author: an agent's role, devlab, a person) - the latest
+/// first, with the last thing it landed, where, and when. Read off what was landed, said by no one.
 pub fn hands(data: &Data, fam: &[String]) -> String {
     let mut latest: BTreeMap<String, &Row> = BTreeMap::new();
-    for r in of(data, "glimpses", fam) {
+    for r in of(data, "glimpses", fam)
+        .into_iter()
+        .chain(of(data, "landings", fam))
+    {
         let by = s(r, "by");
         if by.is_empty() {
             continue;
@@ -3331,6 +3334,27 @@ mod tests {
         );
         assert!(!h.contains("old") && !h.contains("stranger") && !h.contains("unsigned"));
         assert_eq!(hands(&data(&[]), &fam), "", "nothing signed, nothing said");
+    }
+
+    #[test]
+    fn a_landing_signs_as_a_glimpse_does_the_latest_of_either_shown() {
+        let d = data(&[
+            (
+                "glimpses",
+                "{\"project\":\"f/docs\",\"by\":\"bring-up\",\"at\":\"2026-11-17T01:00:00Z\",\"summary\":\"glimpsed\"}",
+            ),
+            (
+                "landings",
+                "{\"project\":\"f/linux\",\"by\":\"bring-up\",\"at\":\"2026-11-17T02:00:00Z\",\"summary\":\"landed\"}\n\
+                 {\"project\":\"f/docs\",\"by\":\"devlab\",\"at\":\"2026-11-17T00:30:00Z\",\"summary\":\"runs filed\"}",
+            ),
+        ]);
+        let fam = ["f/docs".to_string(), "f/linux".to_string()];
+        let h = hands(&d, &fam);
+        assert!(h.contains(
+            "<h4>bring-up</h4><span class=\"chip\">linux · 2026-11-17 02:00</span><p>landed</p>"
+        ));
+        assert!(h.contains("<h4>devlab</h4>") && !h.contains("glimpsed"));
     }
 
     #[test]
