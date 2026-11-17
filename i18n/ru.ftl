@@ -44,6 +44,7 @@ repository = репозиторий
 view-how-close = Насколько мы близки
 view-backlog = Бэклог
 proven-by = доказано тестом
+waits-on = ждёт
 view-log = Журнал
 view-ideas = Понятия и решения
 overview = Обзор

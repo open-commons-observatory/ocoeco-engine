@@ -43,6 +43,7 @@ repository = repository
 view-how-close = How close we are
 view-backlog = Backlog
 proven-by = proven by
+waits-on = waits on
 view-log = Log
 view-ideas = Concepts and decisions
 overview = Overview
