@@ -62,6 +62,7 @@ not-applicable = неприменимо
 passed = пройдено
 failed = провалено
 skipped = пропущено
+where-the-hands-stand = Кто где: последнее, что каждый внёс
 known-gaps = в известных пробелах
 readiness = Готовность
 the-path = Путь

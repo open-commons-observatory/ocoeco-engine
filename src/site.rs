@@ -420,7 +420,11 @@ pub fn lens_view(data: &Data, g: &Grand, fam: &[String], v: &Value, status_legen
             }
             b + "</div>"
         }
-        "heartbeat" => format!("{head}{}", made_by_work(data, fam, now_secs())),
+        "heartbeat" => format!(
+            "{head}{}{}",
+            made_by_work(data, fam, now_secs()),
+            hands(data, fam)
+        ),
         "vocabulary" => vocabulary_html(data, fam),
         "manual_work" => handwork_html(data, fam),
         "research" => research_html(data, fam),
@@ -2043,6 +2047,46 @@ fn now_secs() -> i64 {
 
 /// What the work itself says, gathered by ocoeco: commits per day over 90 days, the latest
 /// release, the state of each CI workflow. Empty when nothing was gathered.
+/// Where each hand stands: every name that signs the family's record of work (a glimpse's `by` - an
+/// agent's role, devlab, a person), the latest first, with the last thing it landed, where, and when.
+/// Read off what was landed, said by no one.
+pub fn hands(data: &Data, fam: &[String]) -> String {
+    let mut latest: BTreeMap<String, &Row> = BTreeMap::new();
+    for r in of(data, "glimpses", fam) {
+        let by = s(r, "by");
+        if by.is_empty() {
+            continue;
+        }
+        let newer = latest.get(&by).is_none_or(|l| s(r, "at") > s(l, "at"));
+        if newer {
+            latest.insert(by, r);
+        }
+    }
+    if latest.is_empty() {
+        return String::new();
+    }
+    let mut rows: Vec<(&String, &&Row)> = latest.iter().collect();
+    rows.sort_by_key(|(_, r)| std::cmp::Reverse(s(r, "at")));
+    let mut b = String::from(r#"<h2>⟦where-the-hands-stand⟧</h2><div class="cards">"#);
+    for (by, r) in rows {
+        let project = s(r, "project");
+        let short = project.rsplit('/').next().unwrap_or(&project).to_string();
+        let _ = write!(
+            b,
+            r#"<div class="card"><h4>{}</h4><span class="chip">{} · {}</span><p>{}</p></div>"#,
+            esc(by),
+            esc(&short),
+            esc(&replace_t(&s(r, "at").chars().take(16).collect::<String>())),
+            esc(&s(r, "summary"))
+        );
+    }
+    b + "</div>"
+}
+
+fn replace_t(at: &str) -> String {
+    at.replacen('T', " ", 1)
+}
+
 pub fn made_by_work(data: &Data, fam: &[String], now: i64) -> String {
     let act = of(data, "activity", fam);
     let rel = of(data, "releases", fam);
@@ -3264,6 +3308,29 @@ mod tests {
             "2026-11-10 14:51 UTC",
             "53511 s into the day"
         );
+    }
+
+    #[test]
+    fn each_hand_shows_where_it_last_landed_the_latest_first() {
+        let d = data(&[(
+            "glimpses",
+            "{\"project\":\"f/docs\",\"by\":\"bring-up\",\"at\":\"2026-11-17T01:00:00Z\",\"summary\":\"old\"}\n\
+             {\"project\":\"f/linux\",\"by\":\"bring-up\",\"at\":\"2026-11-17T02:00:00Z\",\"summary\":\"mic fix\"}\n\
+             {\"project\":\"f/docs\",\"by\":\"devlab\",\"at\":\"2026-11-17T03:00:00Z\",\"summary\":\"runs filed\"}\n\
+             {\"project\":\"other/x\",\"by\":\"stranger\",\"at\":\"2026-11-17T04:00:00Z\",\"summary\":\"no\"}\n\
+             {\"project\":\"f/docs\",\"at\":\"2026-11-17T05:00:00Z\",\"summary\":\"unsigned\"}",
+        )]);
+        let fam = ["f/docs".to_string(), "f/linux".to_string()];
+        let h = hands(&d, &fam);
+        assert!(h.contains(
+            "<h4>bring-up</h4><span class=\"chip\">linux · 2026-11-17 02:00</span><p>mic fix</p>"
+        ));
+        assert!(
+            h.find("devlab").unwrap() < h.find("bring-up").unwrap(),
+            "latest first"
+        );
+        assert!(!h.contains("old") && !h.contains("stranger") && !h.contains("unsigned"));
+        assert_eq!(hands(&data(&[]), &fam), "", "nothing signed, nothing said");
     }
 
     #[test]
