@@ -61,6 +61,7 @@ not-applicable = not applicable
 passed = passed
 failed = failed
 skipped = skipped
+where-the-hands-stand = Where each hand stands: what it last landed
 known-gaps = in known gaps
 readiness = Readiness
 the-path = The path
