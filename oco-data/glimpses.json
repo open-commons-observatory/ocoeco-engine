@@ -1,3 +1,4 @@
 {"id":"g-20261111-213944","at":"2026-11-11T21:39:44Z","by":"lab-agent-session","kind":"chore","summary":"glimpses are recorded here from now on"}
 {"id":"g-20261116-143751","at":"2026-11-16T14:37:51Z","by":"claude","kind":"feat","summary":"the page reads the runs the observatory observes, no longer ci","touches":"decisions:2026-11-16-the-page-reads-the-runs-observed","where":"open-commons-observatory/ocoeco/decisions:2026-11-16-the-latest-runs-are-observed-once"}
 {"id":"g-20261116-160250","at":"2026-11-16T16:02:50Z","by":"claude","kind":"chore","summary":"a mark: what the gatherer writes is said where it writes it - no longer named here"}
+{"id":"g-20261117-002253","at":"2026-11-17T00:22:53Z","by":"claude","kind":"feat","summary":"A site of one family's data is that family's face","touches":"decisions:2026-11-17-one-family-one-face"}
