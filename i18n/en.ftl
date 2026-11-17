@@ -61,6 +61,7 @@ not-applicable = not applicable
 passed = passed
 failed = failed
 skipped = skipped
+known-gaps = in known gaps
 readiness = Readiness
 the-path = The path
 the-path-of = The path of

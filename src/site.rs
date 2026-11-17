@@ -395,6 +395,7 @@ pub fn lens_view(data: &Data, g: &Grand, fam: &[String], v: &Value, status_legen
             legend(&[
                 ("good", "⟦passed⟧"),
                 ("bad", "⟦failed⟧"),
+                ("part", "⟦known-gaps⟧"),
                 ("none", "⟦skipped⟧")
             ]),
             runs_chart(&of(data, "test_runs", fam))
@@ -1338,7 +1339,9 @@ fn observatory(data: &Data, grands: &[Grand]) -> String {
     b
 }
 
-/// The test runs as stacked bars - passed, failed, skipped - oldest first.
+/// The test runs as stacked bars - passed, failed, failed in a known gap, skipped - oldest first. A known
+/// gap (a part the phone never had working, which its own verdict leaves out) is drawn apart from a
+/// failure, so that red on the face is ill health only.
 pub fn runs_chart(runs: &[&Row]) -> String {
     let mut runs = runs.to_vec();
     runs.sort_by_key(|r| s(r, "run_at"));
@@ -1348,12 +1351,13 @@ pub fn runs_chart(runs: &[&Row]) -> String {
         (runs.len() as f64) * (h + 10.0) + 10.0
     );
     for (i, r) in runs.iter().enumerate() {
-        let (p, f, k) = (
+        let (p, f, g, k) = (
             n(r, "passed") as f64,
             n(r, "failed") as f64,
+            n(r, "gaps") as f64,
             n(r, "skipped") as f64,
         );
-        let total = (p + f + k).max(1.0);
+        let total = (p + f + g + k).max(1.0);
         let y = 5.0 + i as f64 * (h + 10.0);
         let _ = write!(
             svg,
@@ -1365,6 +1369,7 @@ pub fn runs_chart(runs: &[&Row]) -> String {
         for (v, c, what) in [
             (p, "var(--good)", "passed"),
             (f, "var(--bad)", "failed"),
+            (g, "var(--part)", "in known gaps"),
             (k, "var(--none)", "skipped"),
         ] {
             let bw = (w - label) * v / total;
@@ -3271,6 +3276,19 @@ mod tests {
         let c = runs_chart(&rows);
         assert_eq!(c.matches("<rect").count(), 3);
         assert!(c.contains("<title>9 passed</title>"));
+    }
+
+    #[test]
+    fn a_known_gap_is_drawn_apart_from_a_failure() {
+        let d = data(&[(
+            "test_runs",
+            "{\"run_at\":\"2026-11-17T01:21\",\"passed\":28,\"failed\":1,\"gaps\":5,\"skipped\":1}",
+        )]);
+        let rows: Vec<&Row> = d.rows("test_runs").iter().collect();
+        let c = runs_chart(&rows);
+        assert_eq!(c.matches("<rect").count(), 4);
+        assert!(c.contains(r#"fill="var(--part)"><title>5 in known gaps</title>"#));
+        assert!(c.contains(r#"fill="var(--bad)"><title>1 failed</title>"#));
     }
 
     #[test]
