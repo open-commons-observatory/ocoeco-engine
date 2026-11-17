@@ -905,6 +905,15 @@ struct Page<'a> {
 }
 
 impl Page<'_> {
+    /// Whose site this is: drawn from one family's data alone, it is that family's face - its name at the
+    /// top, leading to its own front - and otherwise the observatory's. Read off the data, never a flag.
+    fn whose(&self, up: &str) -> (String, String) {
+        match self.grands {
+            [one] => (one.title.clone(), format!("{up}{}/index.html", one.slug)),
+            _ => ("Open Commons Observatory".into(), format!("{up}index.html")),
+        }
+    }
+
     /// A page: the observatory's tabs (itself, then each grand project), a grand project's own views.
     fn render(&self, grand: Option<&Grand>, view: &str, title: &str, body: &str) -> String {
         localize(&self.render_raw(grand, view, title, body))
@@ -983,13 +992,15 @@ impl Page<'_> {
         }
         format!(
             r#"<!doctype html><html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{t} · Open Commons Observatory</title><link rel="stylesheet" href="{up}style.css">{alternates}</head><body>
-<header><div class="wrap"><a class="mark" href="{up}index.html">Open Commons Observatory</a><nav>{nav}</nav><span class="langs" aria-label="{langs_label}">{langs}</span></div></header>{sub}
+<title>{t} · {whose_name}</title><link rel="stylesheet" href="{up}style.css">{alternates}</head><body>
+<header><div class="wrap"><a class="mark" href="{whose_href}">{whose_name}</a><nav>{nav}</nav><span class="langs" aria-label="{langs_label}">{langs}</span></div></header>{sub}
 <main><div class="wrap">{body}</div></main>
 <footer><div class="wrap">{footer} · {g}</div></footer>
 </body></html>
 "#,
             t = esc(title),
+            whose_name = esc(&self.whose(up).0),
+            whose_href = self.whose(up).1,
             g = esc(self.generated),
             langs_label = esc(&t("languages")),
             footer = esc(&t("footer"))
@@ -2966,6 +2977,13 @@ pub fn render(data: &Data, out: &Path) -> Result<()> {
     crate::i18n::set(DEFAULT);
     // the old addresses keep working: each page at the root leads to its default-language twin
     stubs(&out.join(DEFAULT), out, "")?;
+    // one family's face opens on that family: its front is where the root leads
+    if let [one] = grands(data).as_slice() {
+        std::fs::write(
+            out.join("index.html"),
+            redirect(&format!("{DEFAULT}/{}/index.html", one.slug)),
+        )?;
+    }
     std::fs::write(out.join(".nojekyll"), "")?;
     Ok(())
 }
@@ -3443,6 +3461,45 @@ mod tests {
         assert!(
             made_by_work(&d, &["o/none".to_string()], now).is_empty(),
             "nothing gathered, nothing shown"
+        );
+    }
+
+    #[test]
+    fn a_site_of_one_family_is_that_familys_face() {
+        let g = |slug: &str, title: &str| Grand {
+            id: slug.into(),
+            title: title.into(),
+            goal: String::new(),
+            slug: slug.into(),
+            owner: String::new(),
+            owners: vec![],
+            members: vec![],
+            curated: true,
+            order: 0,
+            views: vec![],
+            lens: Value::Null,
+        };
+        let one = vec![g("linux-phones", "Linux Phones")];
+        let p = Page {
+            grands: &one,
+            generated: "x",
+        };
+        assert_eq!(
+            p.whose("../"),
+            (
+                "Linux Phones".to_string(),
+                "../linux-phones/index.html".to_string()
+            )
+        );
+        let two = vec![g("a", "A"), g("b", "B")];
+        let p = Page {
+            grands: &two,
+            generated: "x",
+        };
+        assert_eq!(
+            p.whose("").0,
+            "Open Commons Observatory",
+            "the observatory stays itself"
         );
     }
 
