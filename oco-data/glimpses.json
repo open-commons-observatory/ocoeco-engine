@@ -6,3 +6,4 @@
 {"id":"g-20261117-021620","at":"2026-11-17T02:16:20Z","by":"orchestration","kind":"feat","summary":"Made by work: where each hand stands, and what it last landed"}
 {"id":"g-20261117-032649","at":"2026-11-17T03:26:49Z","by":"conveyor-tad","kind":"feat","summary":"where each hand stands is read off landings too: commits on a main, signed"}
 {"id":"g-20261117-101427","at":"2026-11-17T10:14:27Z","by":"orchestration","kind":"feat","summary":"Backlog: a shared resource's queue (the phone's), each item with its proof"}
+{"id":"g-20261117-103529","at":"2026-11-17T10:35:29Z","by":"orchestration","kind":"feat","summary":"A resource's queue in its order, each item saying what it waits on"}

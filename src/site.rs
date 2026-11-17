@@ -402,10 +402,17 @@ pub fn lens_view(data: &Data, g: &Grand, fam: &[String], v: &Value, status_legen
         ),
         "backlog" => {
             let needs = k("needs");
-            let rows: Vec<&Row> = of(data, "backlog", fam)
+            let mut rows: Vec<&Row> = of(data, "backlog", fam)
                 .into_iter()
                 .filter(|r| needs.is_empty() || s(r, "needs") == needs)
                 .collect();
+            // a resource's queue in its order: the ranked first, by rank; the rest after
+            if !needs.is_empty() {
+                rows.sort_by_key(|r| match n(r, "rank") {
+                    0 => i64::MAX,
+                    k => k,
+                });
+            }
             backlog(&rows, (!needs.is_empty()).then_some(head.as_str()))
         }
         "cards" => {
@@ -1417,7 +1424,7 @@ fn backlog(rows: &[&Row], head: Option<&str>) -> String {
             let short = proj.rsplit('/').next().unwrap_or(&proj).to_string();
             let _ = write!(
                 b,
-                r#"<div class="card"><h4>{}</h4><span class="chip">{}</span>{}<p>{}</p></div>"#,
+                r#"<div class="card"><h4>{}</h4><span class="chip">{}</span>{}{}<p>{}</p></div>"#,
                 esc(&s(r, "title")),
                 esc(&short),
                 if s(r, "proof").is_empty() {
@@ -1426,6 +1433,14 @@ fn backlog(rows: &[&Row], head: Option<&str>) -> String {
                     format!(
                         r#" <span class="chip">⟦proven-by⟧ {}</span>"#,
                         esc(&s(r, "proof"))
+                    )
+                },
+                if s(r, "waits").is_empty() {
+                    String::new()
+                } else {
+                    format!(
+                        r#" <span class="chip">⟦waits-on⟧ {}</span>"#,
+                        esc(&cut(&s(r, "waits"), 60))
                     )
                 },
                 esc(&cut(&s(r, "note"), 200))
@@ -3404,6 +3419,7 @@ mod tests {
         assert!(q.starts_with("<h1>The phone's queue</h1>"));
         assert!(q.contains("On the phone") && !q.contains("Paperwork"));
         assert!(q.contains("⟦proven-by⟧ soc-sleeps"));
+        assert!(!q.contains("⟦waits-on⟧"), "nothing waited on, nothing said");
         let all: Vec<&Row> = d.rows("backlog").iter().collect();
         assert!(
             backlog(&all, None).contains("⟦view-backlog⟧"),
