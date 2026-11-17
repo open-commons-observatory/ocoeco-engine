@@ -43,6 +43,7 @@ rejected = Отвергнуто:
 repository = репозиторий
 view-how-close = Насколько мы близки
 view-backlog = Бэклог
+proven-by = доказано тестом
 view-log = Журнал
 view-ideas = Понятия и решения
 overview = Обзор

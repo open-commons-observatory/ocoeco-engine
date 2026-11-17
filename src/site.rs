@@ -400,7 +400,14 @@ pub fn lens_view(data: &Data, g: &Grand, fam: &[String], v: &Value, status_legen
             ]),
             runs_chart(&of(data, "test_runs", fam))
         ),
-        "backlog" => backlog(&of(data, "backlog", fam)),
+        "backlog" => {
+            let needs = k("needs");
+            let rows: Vec<&Row> = of(data, "backlog", fam)
+                .into_iter()
+                .filter(|r| needs.is_empty() || s(r, "needs") == needs)
+                .collect();
+            backlog(&rows, (!needs.is_empty()).then_some(head.as_str()))
+        }
         "cards" => {
             let mut b = format!(r#"{head}<div class="cards" style="margin-top:28px">"#);
             for r in of(data, &k("table"), fam) {
@@ -1390,9 +1397,13 @@ pub fn runs_chart(runs: &[&Row]) -> String {
     svg + "</svg>"
 }
 
-fn backlog(rows: &[&Row]) -> String {
-    let mut b = String::from(
-        r#"<h1>⟦view-backlog⟧</h1><p class="lead">⟦backlog-lead⟧</p><div class="board" style="margin-top:32px">"#,
+/// The work as a board: open, in progress, done. A view that names `needs` (a shared resource, as phone) shows
+/// only the work that cannot be done without it - that resource's queue - under its own title, each item with
+/// the test that proves it.
+fn backlog(rows: &[&Row], head: Option<&str>) -> String {
+    let mut b = format!(
+        r#"{}<div class="board" style="margin-top:32px">"#,
+        head.unwrap_or(r#"<h1>⟦view-backlog⟧</h1><p class="lead">⟦backlog-lead⟧</p>"#)
     );
     for (st, title) in [
         ("open", "⟦open⟧"),
@@ -1406,9 +1417,17 @@ fn backlog(rows: &[&Row]) -> String {
             let short = proj.rsplit('/').next().unwrap_or(&proj).to_string();
             let _ = write!(
                 b,
-                r#"<div class="card"><h4>{}</h4><span class="chip">{}</span><p>{}</p></div>"#,
+                r#"<div class="card"><h4>{}</h4><span class="chip">{}</span>{}<p>{}</p></div>"#,
                 esc(&s(r, "title")),
                 esc(&short),
+                if s(r, "proof").is_empty() {
+                    String::new()
+                } else {
+                    format!(
+                        r#" <span class="chip">⟦proven-by⟧ {}</span>"#,
+                        esc(&s(r, "proof"))
+                    )
+                },
                 esc(&cut(&s(r, "note"), 200))
             );
         }
@@ -1996,7 +2015,7 @@ pub fn sub_pages(data: &Data, p: &Sub) -> Vec<(String, String, String)> {
         (
             format!("{}-backlog.html", p.slug),
             format!("Backlog · {}", p.title),
-            format!("{}{}", sub_nav(p, "-backlog"), backlog(&back)),
+            format!("{}{}", sub_nav(p, "-backlog"), backlog(&back, None)),
         ),
         (
             format!("{}-log.html", p.slug),
@@ -3367,6 +3386,29 @@ mod tests {
         let c = runs_chart(&rows);
         assert_eq!(c.matches("<rect").count(), 3);
         assert!(c.contains("<title>9 passed</title>"));
+    }
+
+    #[test]
+    fn a_resource_queue_shows_only_what_needs_it_with_its_proof() {
+        let d = data(&[(
+            "backlog",
+            "{\"project\":\"f/docs\",\"id\":\"a\",\"title\":\"On the phone\",\"status\":\"open\",\"needs\":\"phone\",\"proof\":\"soc-sleeps\"}\n\
+             {\"project\":\"f/docs\",\"id\":\"b\",\"title\":\"Paperwork\",\"status\":\"open\"}",
+        )]);
+        let rows: Vec<&Row> = d
+            .rows("backlog")
+            .iter()
+            .filter(|r| s(r, "needs") == "phone")
+            .collect();
+        let q = backlog(&rows, Some("<h1>The phone's queue</h1>"));
+        assert!(q.starts_with("<h1>The phone's queue</h1>"));
+        assert!(q.contains("On the phone") && !q.contains("Paperwork"));
+        assert!(q.contains("⟦proven-by⟧ soc-sleeps"));
+        let all: Vec<&Row> = d.rows("backlog").iter().collect();
+        assert!(
+            backlog(&all, None).contains("⟦view-backlog⟧"),
+            "the whole backlog as before"
+        );
     }
 
     #[test]
