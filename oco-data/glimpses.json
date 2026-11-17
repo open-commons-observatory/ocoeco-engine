@@ -2,3 +2,4 @@
 {"id":"g-20261116-143751","at":"2026-11-16T14:37:51Z","by":"claude","kind":"feat","summary":"the page reads the runs the observatory observes, no longer ci","touches":"decisions:2026-11-16-the-page-reads-the-runs-observed","where":"open-commons-observatory/ocoeco/decisions:2026-11-16-the-latest-runs-are-observed-once"}
 {"id":"g-20261116-160250","at":"2026-11-16T16:02:50Z","by":"claude","kind":"chore","summary":"a mark: what the gatherer writes is said where it writes it - no longer named here"}
 {"id":"g-20261117-002253","at":"2026-11-17T00:22:53Z","by":"claude","kind":"feat","summary":"A site of one family's data is that family's face","touches":"decisions:2026-11-17-one-family-one-face"}
+{"id":"g-20261117-013534","at":"2026-11-17T01:35:34Z","by":"orchestration","kind":"feat","summary":"Tests: a known gap drawn apart from a failure, so red on the face is ill health only"}

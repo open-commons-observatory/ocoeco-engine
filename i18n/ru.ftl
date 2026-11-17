@@ -62,6 +62,7 @@ not-applicable = неприменимо
 passed = пройдено
 failed = провалено
 skipped = пропущено
+known-gaps = в известных пробелах
 readiness = Готовность
 the-path = Путь
 the-path-of = Путь:
