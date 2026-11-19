@@ -144,3 +144,6 @@ reports-legend = Outlined cells are reported by others and not confirmed by our 
 loose-ends = Loose ends
 loose-ends-lead = Everything left in progress anywhere, oldest first. Settle each: done, open with its next step, or parked with a reason.
 since = since
+tabs-label = Views of this page
+tab-table = Table
+embed-needs-js = This view is drawn by a script and needs JavaScript, which is not running here. The first tab reads without it.
