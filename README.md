@@ -36,3 +36,7 @@ The page gets the libraries' script tags, then `<div class="embed" data-data="gr
 element just before it. The container may be hidden when the script runs (another tab shows): a
 script that needs a size waits until it has one. A view of kind `embed` alone, with no tabs, is the
 same container under the view's head.
+
+A script may make its container fill the screen: the browser's Fullscreen API (`.embed:fullscreen`),
+or, where that is absent or refused, the class `full` on the container (`.embed.full`, fixed over the
+window) - the stylesheet lays the container out the same in both.
