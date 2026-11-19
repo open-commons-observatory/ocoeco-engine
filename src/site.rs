@@ -969,6 +969,8 @@ abbr.word{text-decoration:underline dotted;text-underline-offset:3px;cursor:help
 .embed-side{flex:0 1 26rem;min-width:16rem;max-height:72vh;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 16px}
 .embed:fullscreen{display:flex;flex-direction:column;background:var(--bg);padding:16px;overflow:auto}.embed:fullscreen .embed-stage{flex:1;min-height:0;flex-wrap:nowrap;align-items:stretch}.embed:fullscreen .embed-canvas{height:auto;min-height:0}.embed:fullscreen .embed-side{max-height:none}
 @media(max-width:700px){.embed:fullscreen .embed-stage{flex-direction:column}.embed:fullscreen .embed-side{max-height:38vh;flex:none}.embed:fullscreen .embed-canvas{min-height:40vh}}
+.embed.full{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;background:var(--bg);padding:16px;overflow:auto}.embed.full .embed-stage{flex:1;min-height:0;flex-wrap:nowrap;align-items:stretch}.embed.full .embed-canvas{height:auto;min-height:0}.embed.full .embed-side{max-height:none}
+@media(max-width:700px){.embed.full .embed-stage{flex-direction:column}.embed.full .embed-side{max-height:38vh;flex:none}.embed.full .embed-canvas{min-height:40vh}}
 .embed button,.embed select,.embed input{font:inherit;font-size:14.5px;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:3px 10px}.embed button{cursor:pointer}
 footer{border-top:1px solid var(--line);color:var(--mute);font-size:14px;padding:28px 0}
 "#;
