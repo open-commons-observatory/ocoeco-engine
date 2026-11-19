@@ -2,6 +2,7 @@
 //!
 //!   oco site --data DIR --out DIR
 
+mod embed;
 mod i18n;
 mod site;
 

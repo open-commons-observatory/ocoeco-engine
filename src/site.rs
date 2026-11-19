@@ -1,14 +1,16 @@
 //! The observatory's face: a designed static website from the harvested data (tad: text as data) -
-//! every word and number from the data, no JavaScript. The observatory is the meta view; each grand
+//! every word and number from the data; JavaScript only where a view needs it (see embed.rs). The
+//! observatory is the meta view; each grand
 //! project (a marked project of kind `picture`) has its own tab and its own views: how close it is,
 //! its tables, its tests, backlog and landscape. Columns are ranked from the data, best first.
 
+use crate::embed;
 use crate::i18n::{current, t, DEFAULT, LANGUAGES};
 use anyhow::{Context, Result};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 type Row = Map<String, Value>;
 /// A status table's cells: (row, column) -> (status, note).
@@ -16,6 +18,8 @@ type Cells = BTreeMap<(String, String), (String, String)>;
 
 pub struct Data {
     tables: BTreeMap<String, Vec<Row>>,
+    /// the data directory: where a view's script and data files are read from
+    root: PathBuf,
 }
 
 fn s(r: &Row, k: &str) -> String {
@@ -138,7 +142,10 @@ impl Data {
                 .collect();
             tables.insert(name, rows);
         }
-        Ok(Data { tables })
+        Ok(Data {
+            tables,
+            root: dir.to_path_buf(),
+        })
     }
 
     /// The data as one language reads it: each project's own translations laid over its source
@@ -200,7 +207,10 @@ impl Data {
                 set_path(r, &column, &text);
             }
         }
-        Data { tables }
+        Data {
+            tables,
+            root: self.root.clone(),
+        }
     }
 
     pub fn rows(&self, t: &str) -> &[Row] {
@@ -296,12 +306,11 @@ fn family(data: &Data, g: &Grand) -> Vec<String> {
         })
         .collect()
 }
-
-/// One view of a lens, drawn by its kind with the parameters the lens gives.
-pub fn lens_view(data: &Data, g: &Grand, fam: &[String], v: &Value, status_legend: &str) -> String {
+/// A view's title and lead: the head of its page.
+fn view_head(v: &Value) -> String {
     let k = |key: &str| v[key].as_str().unwrap_or("").to_string();
     let lead = k("lead");
-    let head = format!(
+    format!(
         r#"<h1>{}</h1>{}"#,
         esc(&k("title")),
         if lead.is_empty() {
@@ -309,7 +318,43 @@ pub fn lens_view(data: &Data, g: &Grand, fam: &[String], v: &Value, status_legen
         } else {
             format!(r#"<p class="lead">{}</p>"#, esc(&lead))
         }
-    );
+    )
+}
+
+/// One view of a lens, drawn by its kind with the parameters the lens gives: the view itself, or -
+/// when it names `tabs` - its head, then one pane for the view and one for each tab, the view first.
+pub fn lens_view(data: &Data, g: &Grand, fam: &[String], v: &Value, status_legend: &str) -> String {
+    let head = view_head(v);
+    let tabs = embed::tabs_of(v);
+    if tabs.is_empty() {
+        return view_body(data, g, fam, v, status_legend, &head);
+    }
+    let text = |x: &Value, key: &str, or: &str| x[key].as_str().unwrap_or(or).to_string();
+    let mut panes = vec![embed::Pane {
+        id: text(v, "tab_id", embed::FIRST_TAB),
+        title: text(v, "tab_title", "⟦tab-table⟧"),
+        html: view_body(data, g, fam, v, status_legend, ""),
+    }];
+    for t in tabs {
+        panes.push(embed::Pane {
+            id: text(t, "id", ""),
+            title: text(t, "title", ""),
+            html: view_body(data, g, fam, t, status_legend, ""),
+        });
+    }
+    format!("{head}{}", embed::panes(&panes))
+}
+
+/// The body of one view by its kind, under the head the caller gives it.
+fn view_body(
+    data: &Data,
+    g: &Grand,
+    fam: &[String],
+    v: &Value,
+    status_legend: &str,
+    head: &str,
+) -> String {
+    let k = |key: &str| v[key].as_str().unwrap_or("").to_string();
     let label = Some(k("row_title"))
         .filter(|x| !x.is_empty())
         .unwrap_or_else(|| k("rows"));
@@ -413,7 +458,7 @@ pub fn lens_view(data: &Data, g: &Grand, fam: &[String], v: &Value, status_legen
                     k => k,
                 });
             }
-            backlog(&rows, (!needs.is_empty()).then_some(head.as_str()))
+            backlog(&rows, (!needs.is_empty()).then_some(head))
         }
         "cards" => {
             let mut b = format!(r#"{head}<div class="cards" style="margin-top:28px">"#);
@@ -439,6 +484,7 @@ pub fn lens_view(data: &Data, g: &Grand, fam: &[String], v: &Value, status_legen
             made_by_work(data, fam, now_secs()),
             hands(data, fam)
         ),
+        "embed" => format!("{head}{}", embed::embed(v)),
         "vocabulary" => vocabulary_html(data, fam),
         "manual_work" => handwork_html(data, fam),
         "research" => research_html(data, fam),
@@ -528,7 +574,7 @@ pub fn lens_view(data: &Data, g: &Grand, fam: &[String], v: &Value, status_legen
         "log" => {
             let mut logs = of(data, "session_log", fam);
             logs.sort_by_key(|r| std::cmp::Reverse(s(r, "entry_date")));
-            let mut b = head.clone();
+            let mut b = head.to_string();
             for r in logs {
                 let rejected = if s(r, "rejected").is_empty() {
                     String::new()
@@ -915,6 +961,15 @@ abbr.word{text-decoration:underline dotted;text-underline-offset:3px;cursor:help
 .grid td.s.reported{background:transparent;color:var(--fg)}.grid td.s.reported.good{box-shadow:inset 0 0 0 2px var(--good)}.grid td.s.reported.part{box-shadow:inset 0 0 0 2px var(--part)}.grid td.s.reported.bad{box-shadow:inset 0 0 0 2px var(--bad)}
 .grid td.s .rep{display:inline-block;margin-left:5px;padding:0 5px;border-radius:5px;background:var(--bg);color:var(--fg);font-size:11px}.reports-legend{font-size:13.5px;margin-top:10px}
 .loose-list{columns:2 340px;column-gap:28px;margin:0;padding-left:18px}.loose-list li{margin:0 0 7px;font-size:14.5px;break-inside:avoid}.attention.loose h2 small{font-size:15px;color:var(--mute);margin-left:6px}
+.strip{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin:28px 0 0}.strip a{padding:7px 16px;margin-bottom:-1px;color:var(--mute);border:1px solid transparent;border-bottom:0;border-radius:10px 10px 0 0}
+.strip a.on{color:var(--fg);font-weight:600;background:var(--card);border-color:var(--line)}.strip a:hover{text-decoration:none;color:var(--fg)}
+.pane{display:none;scroll-margin-top:76px}.pane :target{scroll-margin-top:120px}.pane:first-of-type,.pane:target,.pane:has(:target){display:block}.panes:has(:target) .pane:first-of-type:not(:target):not(:has(:target)){display:none}
+.embed{margin-top:16px}.embed-bar{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;margin:0 0 10px;font-size:14.5px}
+.embed-stage{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}.embed-canvas{flex:1 1 36rem;min-width:0;height:72vh;min-height:26rem;background:var(--card);border:1px solid var(--line);border-radius:14px}
+.embed-side{flex:0 1 26rem;min-width:16rem;max-height:72vh;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 16px}
+.embed:fullscreen{display:flex;flex-direction:column;background:var(--bg);padding:16px;overflow:auto}.embed:fullscreen .embed-stage{flex:1;min-height:0;flex-wrap:nowrap;align-items:stretch}.embed:fullscreen .embed-canvas{height:auto;min-height:0}.embed:fullscreen .embed-side{max-height:none}
+@media(max-width:700px){.embed:fullscreen .embed-stage{flex-direction:column}.embed:fullscreen .embed-side{max-height:38vh;flex:none}.embed:fullscreen .embed-canvas{min-height:40vh}}
+.embed button,.embed select,.embed input{font:inherit;font-size:14.5px;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:3px 10px}.embed button{cursor:pointer}
 footer{border-top:1px solid var(--line);color:var(--mute);font-size:14px;padding:28px 0}
 "#;
 
@@ -3161,6 +3216,7 @@ fn render_in(data: &Data, out: &Path) -> Result<()> {
         for v in g.lens["view"].as_array().into_iter().flatten() {
             let file = format!("{}.html", v["id"].as_str().unwrap_or("view"));
             let title = v["title"].as_str().unwrap_or("").to_string();
+            embed::publish(&data.root, v, &dir)?;
             let body = lens_view(data, g, &fam, v, &status_legend);
             std::fs::write(
                 dir.join(&file),
@@ -3179,6 +3235,7 @@ mod tests {
 
     fn data(tables: &[(&str, &str)]) -> Data {
         Data {
+            root: PathBuf::new(),
             tables: tables
                 .iter()
                 .map(|(t, text)| {
@@ -3427,6 +3484,84 @@ mod tests {
         );
     }
 
+    const TABBED_LENS: &str = r#"{"id":"o/lens","project":"o/lens","lens":{"lens":{"title":"Linux Phones","goal":"as good"},"family":{"owners":["o"]},"view":[{"id":"steps","title":"Steps","kind":"matrix","lead":"Every step.","table":"cells","rows":"rows","row_key":"r","columns":"cols","column_key":"c","tabs":[{"id":"graph","title":"Graph","kind":"embed","script":"graph/graph.js","data":"graph/b.json","libs":["https://cdn.example/lib@1.0.0.js"]}]}]}}"#;
+
+    #[test]
+    fn a_view_with_tabs_is_its_head_then_the_table_and_the_graph_as_two_panes() {
+        let d = data(&[
+            ("lenses", TABBED_LENS),
+            ("projects", r#"{"id":"o/docs"}"#),
+            (
+                "rows",
+                r#"{"id":"s1","name":"Step one","project":"o/docs"}"#,
+            ),
+            ("cols", r#"{"id":"p","name":"Phone","project":"o/docs"}"#),
+            (
+                "cells",
+                r#"{"r":"s1","c":"p","status":"works","project":"o/docs"}"#,
+            ),
+        ]);
+        let g = grands(&d);
+        let v = lens_view(&d, &g[0], &family(&d, &g[0]), &g[0].lens["view"][0], "");
+        let at = |x: &str| v.find(x).unwrap_or_else(|| panic!("{x} in {v}"));
+        assert!(at("<h1>Steps</h1>") < at(r#"<section class="pane" id="table">"#));
+        assert!(at(r#"id="table""#) < at("Step one") && at("Step one") < at(r#"id="graph""#));
+        assert!(at(r#"id="graph""#) < at(r#"<div class="embed""#));
+        assert!(
+            v.contains("⟦tab-table⟧</a>"),
+            "the first tab is named by a catalog message"
+        );
+        assert_eq!(
+            v.matches("<h1>").count(),
+            1,
+            "one head for the page, not one per pane"
+        );
+        crate::i18n::set("ru");
+        let ru = localize(&v);
+        crate::i18n::set("en");
+        assert!(ru.contains("Таблица</a>") && ru.contains("нужен JavaScript"));
+    }
+
+    #[test]
+    fn the_first_pane_shows_by_default_without_needing_has() {
+        assert!(STYLE.contains(".pane{display:none"));
+        assert!(
+            STYLE.contains(".pane:first-of-type,.pane:target,.pane:has(:target){display:block}"),
+            "one list that old browsers can read: the first pane shows, the targeted one too"
+        );
+        assert!(STYLE.contains(
+            ".panes:has(:target) .pane:first-of-type:not(:target):not(:has(:target)){display:none}"
+        ));
+    }
+
+    #[test]
+    fn the_site_carries_an_embeds_files_into_every_language() {
+        let base = std::env::temp_dir().join(format!("oco-site-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let (dir, out) = (base.join("data"), base.join("out"));
+        std::fs::create_dir_all(dir.join("graph")).unwrap();
+        std::fs::write(dir.join("graph/graph.js"), "var drawn;").unwrap();
+        std::fs::write(dir.join("graph/b.json"), "{}").unwrap();
+        for (name, text) in [
+            ("lenses", TABBED_LENS),
+            ("projects", r#"{"id":"o/docs"}"#),
+            ("curated", r#"{"id":"o/lens","order":1}"#),
+        ] {
+            std::fs::write(dir.join(format!("{name}.json")), format!("{text}\n")).unwrap();
+        }
+        render(&Data::load(&dir).unwrap(), &out).unwrap();
+        for lang in ["en", "ru"] {
+            let at = out.join(lang).join("linux-phones");
+            assert_eq!(
+                std::fs::read_to_string(at.join("graph/graph.js")).unwrap(),
+                "var drawn;"
+            );
+            let page = std::fs::read_to_string(at.join("steps.html")).unwrap();
+            assert!(page.contains(r#"<script src="graph/graph.js"></script>"#));
+            assert!(page.contains(r#"data-data="graph/b.json""#) && !page.contains('⟦'));
+        }
+        std::fs::remove_dir_all(&base).unwrap();
+    }
     #[test]
     fn a_known_gap_is_drawn_apart_from_a_failure() {
         let d = data(&[(
